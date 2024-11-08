@@ -1,0 +1,230 @@
+<!-- be like wechat up in this bitch -->
+<!-- templates/chat.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SYNTEXT</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/gif">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        #messages {
+            border: 0px solid #ccc;
+            list-style-type: none;
+            padding: 0;
+            font-size: 17px;
+        }
+
+        input, button {
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border: none;
+            font-size: 16px;
+        }
+
+        input {
+            background-color: #333;
+            color: white;
+        }
+
+        button {
+            background-color: #555;
+            color: white;
+            cursor: pointer;
+        }
+        
+        #chat {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>SYNTEXT</h1>
+    <div id="chat">
+        <ul id="messages"></ul>
+        <input id="message" placeholder="Message/Embed URL">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+    <div class="toggle-container">
+        <label for="timeFormat">12-Hour Format:</label>
+        <input type="checkbox" id="timeFormat" onchange="toggleTimeFormat()">
+    </div>
+    <p id="splashText" style="color:#223560; font-weight: bold;"></p>
+    <br>
+    <hr>
+    <br>
+    <div id="joinRoomContainer">
+        <input id="username" placeholder="Username Limit of 20">
+        <input id="room" placeholder="Room Name in lowercase">
+        <button id="joinbutton" onclick="joinRoom()">Join Room</button>
+    </div>
+    <button onclick="leaveRoom()">Leave Room</button>
+    <br>
+    <br>
+<div id="ideaSubmissionContainer">
+    <h2>Have ideas?</h2>
+    <form id="ideaForm" onsubmit="submitIdea(event)">
+        <input type="text" id="ideaInput" placeholder="Your feasible idea" required>
+        <button type="submit">Submit (I might read it)</button>
+    </form>
+    <div id="ideaResponseMessage"></div>
+</div>
+
+<script>
+    function submitIdea(event) {
+        event.preventDefault(); 
+        const idea = document.getElementById('ideaInput').value;
+        fetch('/submit-idea', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ idea: idea })
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('ideaResponseMessage').innerText = data.message;
+            document.getElementById('ideaForm').reset(); 
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('ideaResponseMessage').innerText = 'Error submitting idea. Please try again.';
+        });
+    }
+</script><br><br>
+    <p1>Wanna join the team?     Heres a google form!</p1> <br><br><br><br>
+    <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSc3XJyJKaBpR32H_BGuhp-dpWd0LVJlOE209na3IqVMg3Wh4w/viewform?embedded=true" width="640" height="640" frameborder="0" marginheight="0" marginwidth="0">Loading…</iframe> <br><br>
+    <a href="http://heck3.godhasleft.us:7070">Alpha testing! (Only up sometimes)
+
+    <script>
+        const maxusername = 20;
+        const socket = io.connect('http://' + document.domain + ':' + location.port);
+        let is12HourFormat = false; 
+        
+        function joinRoom() {
+            const username = document.getElementById('username').value;
+            const room = document.getElementById('room').value;
+            if (!validateUsername(username)) {
+                return; 
+            }
+        
+            socket.emit('join', { username, room });
+            document.getElementById('joinRoomContainer').style.display = 'none';
+        }
+        
+        function leaveRoom() {
+            const username = document.getElementById('username').value;
+            const room = document.getElementById('room').value;
+            if (!username) {
+                alert("Enter your username before leaving");
+                return;
+            }
+            socket.emit('leave', { username, room });
+            document.getElementById('joinRoomContainer').style.display = 'block';
+            document.getElementById('room').value = '';
+            document.getElementById('messages').innerHTML = ''; 
+        }
+        
+        function sendMessage() {
+            const room = document.getElementById('room').value;
+            const message = document.getElementById('message').value;
+            const username = document.getElementById('username').value;
+            if (!username) {
+                alert("Enter your username before messaging");
+                return;
+            }
+            if (!message) {
+                alert("Message cannot be empty");
+                return;
+            }
+        
+            socket.emit('message', { room, message, username });
+            document.getElementById('message').value = '';
+        }
+        
+        document.getElementById('message').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+                event.preventDefault();
+            }
+        });
+        
+        function toggleTimeFormat() {
+            is12HourFormat = document.getElementById('timeFormat').checked; 
+        }
+        
+        function validateUsername(username) {
+            if (!username) {
+                alert('Username cannot be empty.');
+                return false;
+            }
+            if (username.length > maxusername) {
+                alert(`Username cannot exceed ${maxusername} characters.`);
+                return false;
+            }
+            return true;
+        }
+        
+        function formatTimestamp(timestamp) {
+            const date = new Date(timestamp); 
+            if (is12HourFormat) {
+                return date.toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
+            } else {
+                return date.toLocaleString('en-GB', { hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false });
+            }
+        }
+        window.onload = function() {
+            console.log('Window loaded');
+            fetchRandomSplash();
+        };
+        function fetchRandomSplash() {
+            console.log('Fetching splash text from static/nowwith.txt');
+            fetch('static/nowwith.txt')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    console.log('Fetched data:', data);
+                    const splashes = data.split('\n').filter(line => line.trim() !== '');
+                    if (splashes.length === 0) {
+                        throw new Error('No valid splash messages found.');
+                    }
+                    const randomIndex = Math.floor(Math.random() * splashes.length);
+                    document.getElementById('splashText').innerText = splashes[randomIndex];
+                })
+                .catch(error => {
+                    console.error('There was a problem with the fetch operation:', error);
+                    document.getElementById('splashText').innerText = 'Error loading splash message.';
+                });
+        }
+        
+        socket.on('message', function(msg) {
+            const messages = document.getElementById('messages');
+            const newMessage = document.createElement('li');
+            const formattedTime = formatTimestamp(new Date().getTime()); 
+            if (msg.username === 'Server') {
+                newMessage.textContent = `${msg.username}: ${msg.message}`;
+            } else {
+                if (msg.message.match(/\.(gif|jpg|jpeg|png)$/)) {
+                    newMessage.innerHTML = `${formattedTime} | ${msg.username}: <img src="${msg.message}" style="max-width: 200px;">`;
+                } else {
+                    newMessage.textContent = `${formattedTime} | <${msg.username}>: ${msg.message}`;    
+                }
+            }
+            messages.appendChild(newMessage);
+        });
+    </script>
+</body>
+</html>
